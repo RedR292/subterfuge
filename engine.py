@@ -6,16 +6,35 @@
 ##Only update vessel tracking for those subs on the same depth zone as the player
 ##	Creates isolation like you're actually underwater
 
+from os import system
+from Vessel import *
 import pygame
 pygame.init()
+system('cls')
 
 ##Setup the pygame screen and functions
 SCREEN_DIMENSIONS=[SCREEN_WIDTH, SCREEN_HEIGHT]=[500,600]
 screen=pygame.display.set_mode(SCREEN_DIMENSIONS)
 tick=pygame.display.flip
 draw=pygame.draw
-drawRect=pygame.Surface
+drawSurf=pygame.Surface
 clock=pygame.time.Clock()
+SPAWN_VESSEL=pygame.USEREVENT+1
+SPAWN_TIME_MSECONDS=2000
+pygame.time.set_timer(SPAWN_VESSEL,SPAWN_TIME_MSECONDS)
+vessel_generator=Vessel()
+ships=[]
+snipers=[]
+subs=[]
+vessels={'sh':ships,'sn':snipers,'su':subs}
+
+##Trigger function for SPAWN_VESSEL
+##Random chance to spawn a new vessel
+def spawn():
+	if vessel_generator.spawn_vessel('sh'): ships.append(Ship())
+	if vessel_generator.spawn_vessel('sn'): snipers.append(Sniper())
+	if vessel_generator.spawn_vessel('su'): subs.append(Sub())
+#ENDSPAWN
 
 ##Setup the surfs (100m intervals deep)
 ##surfs are drawn onto surf
@@ -26,12 +45,11 @@ SURF_RANGE=range(SURF_COUNT)
 elevation=190
 MAX_DEPTH=190
 MIN_DEPTH=-900
-surf=drawRect((500,100*SURF_COUNT))
+surf=drawSurf((500,100*SURF_COUNT))
 rect=surf.get_rect()
-surfs=[drawRect((500,100)) for i in SURF_RANGE]
+surfs=[drawSurf((500,100)) for i in SURF_RANGE]
 rects=[surf_n.get_rect() for surf_n in surfs]
 blue_background=0x7ec0f2
-
 
 ##Classes
 
@@ -71,6 +89,7 @@ class Sonar:
     #END rotate
 #ENDCLASS
 
+
 ##sonar and depth gauge images
 sonar_pos=(12,500)
 SONAR_OFFSET=43
@@ -78,6 +97,37 @@ sonar=Sonar('resources\\sonar.png','resources\\sonar_header.png',sonar_pos,SONAR
 depth_gauge=pygame.image.load('resources\\depth_gauge.png').convert_alpha()
 depth_gauge_rect=depth_gauge.get_rect()
 shuttle_y=15
+
+##A class for handling the vessel_surf
+class Vessel_Surf:
+	def __init__(self):
+		self.surf=drawSurf((500,900))
+	#END init
+
+	##Draw each vessel onto the surf
+	def draw_vessels(self):
+		for type in vessels:
+			active_type=vessels[type]
+			vessel_surfs=[drawSurf((30,30)) for vessel in active_type]
+			for index in range(len(vessel_surfs)):
+				vessel_surfs[index].fill(0x000000)
+			vessel_rects=[surf.get_rect() for surf in vessel_surfs]
+			for index in range(len(active_type)):
+				vessel=active_type[index]
+				vessel_topleft=(vessel.getAngle(),vessel.getDepth())
+				vessel_rects[index].topleft=vessel_topleft
+				self.surf.blit(vessel_surfs[index],vessel_rects[index])
+			#ENDFOR
+		#ENDFOR
+	#END draw_vessels
+
+	##Draw surf onto a parent surf and vessels on this nested surf
+	def draw(self,surf,elevation):
+		self.draw_vessels()
+		surf.blit(self.surf,(0,elevation))
+#ENDCLASS
+
+vessel_surf=Vessel_Surf()
 
 ##Setup the facing text
 ##To be replaced with a sonar
@@ -96,83 +146,85 @@ def blit_sonar(image,rect):
     screen.blit(header_image,header_rect)
 
 ##Game loop
+print(vessel_generator)
 gameon=True
 while gameon:
     ##Listen for game events
-    for event in pygame.event.get():
-        if event.type==pygame.QUIT:
-            gameon=False
+	for event in pygame.event.get():
+		if event.type==pygame.QUIT:
+			gameon=False
 
-        elif event.type==pygame.KEYDOWN: #keypresses
-            keyPressed=event.key
-            if keyPressed==pygame.K_DOWN:
-                speed_down=20
-            elif keyPressed==pygame.K_UP:
-                speed_up=20
-            elif keyPressed==pygame.K_LEFT:
-                speed_left=3
-            elif keyPressed==pygame.K_RIGHT:
-                speed_right=3
-            elif keyPressed==pygame.K_ESCAPE:
-                gameon=False
-            elif keyPressed==pygame.K_RETURN:
-                pass
-            #ENDELIF
-        elif event.type==pygame.KEYUP: #keyreleases
-            keyReleased=event.key
-            if keyReleased==pygame.K_DOWN:
-                # print('down')
-                speed_down=0
-            elif keyReleased==pygame.K_UP:
-                speed_up=0
-            elif keyReleased==pygame.K_LEFT:
-                speed_left=0
-            elif keyReleased==pygame.K_RIGHT:
-                speed_right=0
-            #ENDELIF
+		elif event.type==pygame.KEYDOWN: #keypresses
+			keyPressed=event.key
+			if keyPressed==pygame.K_DOWN:
+				speed_down=20
+			elif keyPressed==pygame.K_UP:
+				speed_up=20
+			elif keyPressed==pygame.K_LEFT:
+				speed_left=3
+			elif keyPressed==pygame.K_RIGHT:
+				speed_right=3
+			elif keyPressed==pygame.K_ESCAPE:
+				gameon=False
+
+		elif event.type==pygame.KEYUP: #keyreleases
+			keyReleased=event.key
+			if keyReleased==pygame.K_DOWN:
+				# print(elevation)
+				speed_down=0
+			elif keyReleased==pygame.K_UP:
+				# print(elevation)
+				speed_up=0
+			elif keyReleased==pygame.K_LEFT:
+				speed_left=0
+			elif keyReleased==pygame.K_RIGHT:
+				speed_right=0
+
+		elif event.type==SPAWN_VESSEL:
+			spawn()
+			system('cls')
+			print(vessel_generator)
         #ENDELIF
-    #ENDFOR
+	#ENDFOR
 
     ##Fill the screen
-    screen.fill(blue_background)
+	screen.fill(blue_background)
 
     ##Determine movement and facing
-    depth_speed=speed_up-speed_down
-    if(depth_speed):
-        if MIN_DEPTH<=elevation+depth_speed<=MAX_DEPTH:
-            elevation+=depth_speed
-    if(elevation>-100):
-        shuttle_y=15
-    elif(-100>=elevation>=-600):
-        shuttle_y=50
-    else:
-        shuttle_y=80
+	depth_speed=speed_up-speed_down
+	if(depth_speed):
+		if MIN_DEPTH<=elevation+depth_speed<=MAX_DEPTH:
+			elevation+=depth_speed
+	if(elevation>-100):
+		shuttle_y=15
+	elif(-100>=elevation>=-600):
+		shuttle_y=50
+	else:
+		shuttle_y=80
 
-    rotate_speed=speed_right-speed_left
-    if(rotate_speed):
-        # facing+=rotate_speed
-        # if facing>359: facing=0
-        # elif facing<0: facing=359
-        sonar.rotate(-rotate_speed)
+	rotate_speed=speed_right-speed_left
+	if(rotate_speed):
+		sonar.rotate(-rotate_speed)
     #ENDIF -> Player has stoppped rotating
 
     #display widgets
-    for index in SURF_RANGE:
-        surf_i=surfs[index]
-        surf_pos=(0,index*100)
-        surf_i.fill(SCREEN_COLOURS[index])
-        surf.blit(surf_i, surf_pos)
-    screen.blit(surf, (0,elevation))
+	for index in SURF_RANGE:
+		surf_i=surfs[index]
+		surf_pos=(0,index*100)
+		surf_i.fill(SCREEN_COLOURS[index])
+		surf.blit(surf_i, surf_pos)
+	# screen.blit(surf, (0,elevation))
     # text=font.render(f'Facing: {int(facing)}°',False, (255,255,255))
     # screen.blit(text, sonar_pos)
-    sonar_image=sonar.get_image()
-    sonar_rect=sonar.get_rect()
-    blit_sonar(sonar_image,sonar_rect)
-    screen.blit(depth_gauge,(110,480))
+	sonar_image=sonar.get_image()
+	sonar_rect=sonar.get_rect()
+	# blit_sonar(sonar_image,sonar_rect)
+	# screen.blit(depth_gauge,(110,480))
     # screen.blit(depth_gauge,depth_gauge_rect)
-    depth_gauge_shuttle=drawRect((8,10))
-    depth_gauge_shuttle.fill(0xffffff)
-    screen.blit(depth_gauge_shuttle,(116,490+shuttle_y-5))
-    tick()
-    clock.tick(30)
+	# depth_gauge_shuttle=drawSurf((8,10))
+	# depth_gauge_shuttle.fill(0xffffff)
+	# screen.blit(depth_gauge_shuttle,(116,490+shuttle_y-5))
+	vessel_surf.draw(surf,elevation)
+	tick()
+	clock.tick(30)
 #ENDWHILE
