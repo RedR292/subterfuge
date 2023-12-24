@@ -7,7 +7,7 @@ active_vessels={'sh':0,'sn':0,'su':0}
 class Vessel:
 	# surface_vessels,sniper_vessels,sub_vessels=active_vessels=[0,0,0]
 	##INIT FUNCTION IS FOR TESTING, SHOULD NOT BE CALLABLE IN END PRODUCT
-	def __init__(self, spawn_depth=190, spritePath='<SHIPSPRITEPATH>',type=''):
+	def __init__(self, spawn_depth=-5, spritePath='<SHIPSPRITEPATH>',type=''):
 		if type in active_vessels:
 			is_facing_right=rand(0,2) #BOOL
 			self.facing_right=is_facing_right
@@ -18,21 +18,6 @@ class Vessel:
 			active_vessels[type]+=1
 		#ENDIF
 	#END init
-
-	def getAngle(self): return self.angle
-	def getDepth(self): return self.depth
-
-	##function for spawning vessels
-	def spawn_vessel(self,spawn_zone_index):
-		spawn_zone=active_vessels[spawn_zone_index]
-		if spawn_zone<ZONE_SPAWN_LIMIT:
-			 # the more vessels on that level, the less likely theyll spawn
-			skew=int(spawn_zone/2)
-			spawn=rand(0,8-skew)
-			spawn_chance=(spawn<=2)
-			return spawn_chance
-		#ENDIF
-	#END spawn_vessel
 
 	##called whenever a vessel is destroyed
 	def __del__(self):
@@ -45,6 +30,24 @@ class Vessel:
 		#	destroyed_vessel_index=2
 		#active_vessels[destroyed_index]-=1
 	#END del
+
+	def getAngle(self): return self.angle
+	def getDepth(self): return self.depth
+
+	def setAngle(self,angle):self.angle=angle
+	def setDepth(self,depth):self.depth=depth
+
+	##function for spawning vessels
+	def spawn_vessel(self,spawn_zone_index):
+		spawn_zone=active_vessels[spawn_zone_index]
+		if spawn_zone<ZONE_SPAWN_LIMIT:
+			 # the more vessels on that level, the less likely theyll spawn
+			skew=int(spawn_zone/2)
+			spawn=rand(0,8-skew)
+			spawn_chance=(spawn<=2)
+			return spawn_chance
+		#ENDIF
+	#END spawn_vessel
 
 	##Called whenever a vessel attacks
 	def attack(self):
@@ -64,9 +67,16 @@ class Vessel:
 				else:
 					print_str+='|O'
 			print_str+='|\n'
+			#ENDFOR
 		#ENDFOR
 		print_str+=border_str
 		return print_str
+	#END str
+
+	##For moving the vessel
+	def move(self,speed):
+		pass
+	#END move
 #ENDCLASS
 
 ##Ship subclass of Vessel
@@ -82,7 +92,7 @@ class Ship(Vessel):
 ##spawns from 240-540
 class Sniper(Vessel):
 	def __init__(self):
-		depth=rand(240,541)
+		depth=rand(100,541)
 		super().__init__(spawn_depth=depth,type='sn')
 	#END init
 #ENDCLASS
