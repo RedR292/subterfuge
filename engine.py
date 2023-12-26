@@ -1,6 +1,6 @@
 ##Tester for the screen display
 ##Has to be able to rotate and move the vessels
-##Need to change Vessel_Surf.set_vs
+##Need to change Vessel_Surf.update_rects
 ##	Needs to addend each new surf, rect, and coord
 ##	Cannot reinstantiate new surfs, rects, and coords
 
@@ -24,10 +24,7 @@ SPAWN_VESSEL=pygame.USEREVENT+1
 SPAWN_TIME_MSECONDS=2000
 pygame.time.set_timer(SPAWN_VESSEL,SPAWN_TIME_MSECONDS)
 vessel_generator=Vessel()
-ships=[]
-snipers=[]
-subs=[]
-vessels={'sh':ships,'sn':snipers,'su':subs}
+vessels={'sh':[],'sn':[],'su':[]}
 
 
 ##Setup the surfs (100m intervals deep)
@@ -94,46 +91,59 @@ shuttle_y=195
 class Vessel_Surf:
 	def __init__(self):
 		self.surf=drawSurf((500,900),pygame.SRCALPHA).convert_alpha()
+		self.surfs={'sh':[],'sn':[],'su':[]}
+		self.rects={'sh':[],'sn':[],'su':[]}
 	#END init
 
 	##set the surfs
-	def _set_surfs(self,vessels: dict):
-		self.surfs={}
-		for type in vessels:
-			self.surfs[type]=[drawSurf((30,30)) for vessel in vessels[type]]
-		#ENDFOR
-		# print(self.surfs)
+	##Needs to create only the new vessel surf, not all of them
+	def _make_surf(self):
+		surf=drawSurf((30,30))
+		return surf
 	#END set_surfs
 
+	def _make_rect(self, surf: Vessel):
+		rect=surf.get_rect()
+		return rect
+	#END _make_rect
+
 	##set the coordinates
-	def _set_coords(self,vessels: dict):
-		self.coords={}
-		for type in vessels:
-			self.coords[type]=[(v.getAngle(),v.getDepth()) for v in vessels[type]]
-		#ENDFOR
-		# print(self.coords)
-	#END set_coords
-
-	##set the rects
-	def _set_rects(self,vessels: dict):
-		self.rects={}
-		for type in vessels:
-			# print(vessels.keys())
-			self.rects[type]=[s.get_rect() for s in self.surfs[type]]
-			for index in range(len(self.rects[type])):
-				self.rects[type][index].topleft=self.coords[type][index]
+	def set_coords(self,type=None,vessel=None):
+		if not vessel or not type:
+			for type in self.surfs:
+				for index in range(len(vessels[type])):
+					coord=vessels[type][index].getCoords()
+					self.rects[type][index].topleft=coord
+				#ENDFOR
 			#ENDFOR
-		#ENDFOR
-	#END set_rects
+		#ENDIF
+		else:
+			coord=vessel.getCoords()
+			self.rects[type][-1].topleft=coord
 
-	##User-level function to call all setters
-	def set_vs(self,vessels: dict):
-		self._set_surfs(vessels)
-		self._set_coords(vessels)
-		self._set_rects(vessels)
+	def make_vessel(self,type: str,vessel: Vessel):
+		vessels[type].append(vessel)
+		surf=self._make_surf()
+		rect=self._make_rect(surf)
+		self.surfs[type].append(surf)
+		self.rects[type].append(rect)
+	#END make_vessel
+
+	##Trigger for spawning new vessels
+	def trigger_spawn(self):
+		spawn_vessel={'sh':Ship,'sn':Sniper,'su':Sub}
+		for type in vessels:
+			spawn_chance=vessel_generator.spawn_vessel(type)
+			if spawn_chance:
+				Spawner=spawn_vessel[type]
+				new_vessel=Spawner()
+				self.make_vessel(type,new_vessel)
+				self.set_coords(type,new_vessel)
+			#ENDIF -> new vessel has been spawned
 
 	##Draw each vessel onto the surf
 	def draw_vessels(self):
+		self.surf.fill(pygame.Color(0,0,0,0))
 		for type in self.surfs:
 			artbook=self.surfs[type]
 			rects=self.rects[type]
@@ -144,7 +154,6 @@ class Vessel_Surf:
 				self.surf.blit(surf,rect)
 			#ENDFOR
 		#ENDFOR
-		return self.surf
 	#END draw_vessels
 
 	##Draw surf onto a parent surf and vessels on this nested surf
@@ -153,19 +162,17 @@ class Vessel_Surf:
 		surf.blit(self.surf,(0,elevation))
 	#END draw
 
-	def get(self):
-		return [self.surf,self.surfs,self.coords,self.rects]
 
 	def __str__(self):
 		str=''
 		for type in self.surfs:
 			surfs=self.surfs[type]
-			coords=self.coords[type]
 			rects=self.rects[type]
 			str+='\tSurfs\t|\tCoords\t\t|\tRects\n'
 			str+='+-------------------------------------------------------------+\n'
 			for index in range(len(surfs)):
-				str+=f'\tSurf{index+1}\t|\t{coords[index]}\t|\t{rects[index].topleft}\n'
+				coord=vessels[type][index].getCoords()
+				str+=f'\tSurf{index+1}\t|\t{coord}\t|\t{rects[index].topleft}\n'
 			#ENDFOR
 			str+='+-------------------------------------------------------------+\n\n'
 		#ENDFOR
@@ -177,17 +184,18 @@ class Vessel_Surf:
 		for type in vessels:
 			vessel_type=vessels[type]
 			for index in range(len(vessel_type)):
-				vessel=vessel_type[index]
-				new_angle=vessel.getAngle()+speed
-				if new_angle>359: new_angle-=359
-				elif new_angle<0: new_angle=359-new_angle
+				new_angle=vessel_type[index].getAngle()+speed
+				if new_angle>499: new_angle-=499
+				elif new_angle<0: new_angle=499-new_angle
 				vessels[type][index].setAngle(new_angle)
+			self.set_coords()
 			#ENDFOR -> done with vessel
 		#ENDFOR -> done with vessel type
+
+
 #ENDCLASS
 
 vessel_surf=Vessel_Surf()
-vessel_surf.set_vs(vessels)
 
 ##Setup the facing text
 ##To be replaced with a sonar
@@ -204,14 +212,6 @@ def blit_sonar(image,rect):
     sonar_rect,header_rect=sonar.get_rect()
     screen.blit(sonar_image,sonar_rect)
     screen.blit(header_image,header_rect)
-
-##Trigger function for SPAWN_VESSEL
-##Random chance to spawn a new vessel
-def spawn():
-	if vessel_generator.spawn_vessel('sh'): ships.append(Ship())
-	if vessel_generator.spawn_vessel('sn'): snipers.append(Sniper())
-	if vessel_generator.spawn_vessel('su'): subs.append(Sub())
-#ENDSPAWN
 
 ##Game loop
 print(vessel_generator)
@@ -249,8 +249,7 @@ while gameon:
 				speed_right=0
 
 		elif event.type==SPAWN_VESSEL:
-			spawn()
-			vessel_surf.set_vs(vessels)
+			vessel_surf.trigger_spawn()
 			system('cls')
 			print(vessel_generator)
 			print(vessel_surf)
@@ -281,7 +280,6 @@ while gameon:
 	if(rotate_speed):
 		sonar.rotate(-rotate_speed)
 		vessel_surf.move(rotate_speed)
-
     #ENDIF -> Player has stopped rotating
 
     #display widgets in the order of:
@@ -301,8 +299,7 @@ while gameon:
     # screen.blit(text, sonar_pos)
 	sonar_image=sonar.get_image()
 	sonar_rect=sonar.get_rect()
-	vs=vessel_surf.draw_vessels()
-	screen.blit(vs,(0,elevation))
+	vessel_surf.draw(screen,elevation)
 	blit_sonar(sonar_image,sonar_rect)
 	screen.blit(depth_gauge,depth_gauge_rect)
 	depth_gauge_shuttle=drawSurf((8,10))

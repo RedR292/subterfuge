@@ -25,7 +25,7 @@ class Vessel:
 		##if type(self)=='Ship':
 		#	destroyed_vessel_index=0
 		##elif type(self)=='Sniper':
-		#	destroyed_vessel_index=1
+		#	destroyed_vessel_index=1`
 		##elif type(self)=='Sub':
 		#	destroyed_vessel_index=2
 		#active_vessels[destroyed_index]-=1
@@ -33,6 +33,7 @@ class Vessel:
 
 	def getAngle(self): return self.angle
 	def getDepth(self): return self.depth
+	def getCoords(self): return(self.getAngle(),self.getDepth())
 
 	def setAngle(self,angle):self.angle=angle
 	def setDepth(self,depth):self.depth=depth
@@ -40,13 +41,11 @@ class Vessel:
 	##function for spawning vessels
 	def spawn_vessel(self,spawn_zone_index):
 		spawn_zone=active_vessels[spawn_zone_index]
-		if spawn_zone<ZONE_SPAWN_LIMIT:
-			 # the more vessels on that level, the less likely theyll spawn
-			skew=int(spawn_zone/2)
-			spawn=rand(0,8-skew)
-			spawn_chance=(spawn<=2)
-			return spawn_chance
-		#ENDIF
+		if spawn_zone>=ZONE_SPAWN_LIMIT: return False
+		skew=int(spawn_zone/2) # More ships on level=less likely to spawn
+		spawn_chance=rand(0,8-skew)
+		if spawn_chance<=2: return True
+		else: return False
 	#END spawn_vessel
 
 	##Called whenever a vessel attacks
